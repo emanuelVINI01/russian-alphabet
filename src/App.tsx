@@ -17,6 +17,9 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const canSubmit = state.phase === 'playing' && state.userInput.trim().length > 0;
+  const afterAnswer = state.phase === 'correct' || state.phase === 'wrong' || state.phase === 'revealed';
+
   // Auto-focus input when a new word appears
   useEffect(() => {
     if (state.phase === 'playing') {
@@ -24,12 +27,26 @@ export default function App() {
     }
   }, [state.word, state.phase]);
 
-  const canSubmit = state.phase === 'playing' && state.userInput.trim().length > 0;
-  const afterAnswer = state.phase === 'correct' || state.phase === 'wrong' || state.phase === 'revealed';
+  // Global Enter listener: advances to next word when answer is already shown
+  // (catches Enter even when input is disabled/unfocused after submitting)
+  useEffect(() => {
+    function onKeyDown(e: globalThis.KeyboardEvent) {
+      if (e.key !== 'Enter') return;
+      // Let the input's own handler deal with it while the input is focused
+      if (document.activeElement === inputRef.current) return;
+      if (afterAnswer) newWord();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [afterAnswer, newWord]);
 
+  // Input Enter: first press confirms, second press (input still focused) advances
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') {
-      if (canSubmit) submit();
+    if (e.key !== 'Enter') return;
+    if (canSubmit) {
+      submit();
+    } else if (afterAnswer) {
+      newWord();
     }
   }
 
